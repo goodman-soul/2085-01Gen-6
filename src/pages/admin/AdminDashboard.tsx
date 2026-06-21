@@ -58,17 +58,22 @@ function getTodayRange() {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const { orders, initOrders } = useOrderStore();
-  const { records, initRecords } = useRecordStore();
-  const { initBeds } = useBedStore();
+  const { orders, fetchOrders } = useOrderStore();
+  const { records, fetchRecords } = useRecordStore();
+  const { fetchBeds } = useBedStore();
 
   const adminName = localStorage.getItem(ADMIN_NAME_KEY) || '管理员';
 
   useEffect(() => {
-    initOrders();
-    initRecords();
-    initBeds();
-  }, [initOrders, initRecords, initBeds]);
+    const initData = async () => {
+      try {
+        await Promise.all([fetchOrders(), fetchRecords(), fetchBeds()]);
+      } catch (error) {
+        console.error('Failed to load data:', error);
+      }
+    };
+    initData();
+  }, [fetchOrders, fetchRecords, fetchBeds]);
 
   const stats = useMemo(() => {
     const { startOfToday, startOfYesterday } = getTodayRange();

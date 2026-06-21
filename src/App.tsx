@@ -16,15 +16,24 @@ import { useOrderStore } from "@/store/useOrderStore";
 import { useRecordStore } from "@/store/useRecordStore";
 
 export default function App() {
-  const initBeds = useBedStore((s) => s.initBeds);
-  const initOrders = useOrderStore((s) => s.initOrders);
-  const initRecords = useRecordStore((s) => s.initRecords);
+  const fetchBeds = useBedStore((s) => s.fetchBeds);
+  const fetchOrders = useOrderStore((s) => s.fetchOrders);
+  const fetchRecords = useRecordStore((s) => s.fetchRecords);
 
   useEffect(() => {
-    initBeds();
-    initOrders();
-    initRecords();
-  }, [initBeds, initOrders, initRecords]);
+    const initData = async () => {
+      try {
+        await Promise.all([
+          fetchBeds(),
+          fetchOrders(),
+          fetchRecords(),
+        ]);
+      } catch (error) {
+        console.error('Failed to initialize data:', error);
+      }
+    };
+    initData();
+  }, [fetchBeds, fetchOrders, fetchRecords]);
 
   return (
     <Router>

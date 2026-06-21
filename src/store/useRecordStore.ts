@@ -1,79 +1,44 @@
 import { create } from 'zustand';
 import type { ExceptionRecord, RecordType } from '../types';
-import { initialRecords } from '../utils/mockData';
+import { recordApi } from '../api/records';
 
 type PartialRecord = Partial<Omit<ExceptionRecord, 'id' | 'createdAt'>>;
 
 interface RecordState {
   records: ExceptionRecord[];
   loading: boolean;
-  initRecords: () => void;
-  addRecord: (record: Omit<ExceptionRecord, 'id' | 'createdAt'> & { createdAt?: string }) => ExceptionRecord;
+  fetchRecords: (params?: { type?: RecordType; orderId?: string }) => Promise<void>;
+  addRecord: (record: Omit<ExceptionRecord, 'id' | 'createdAt'> & { createdAt?: string }) => Promise<void>;
   getRecordsByType: (type: RecordType) => ExceptionRecord[];
   getRecordsByOrderId: (orderId: string) => ExceptionRecord[];
-  updateRecord: (id: string, updates: PartialRecord) => ExceptionRecord | null;
-}
-
-const STORAGE_KEY = 'record-store';
-
-function loadFromStorage(): ExceptionRecord[] | null {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
-function saveToStorage(records: ExceptionRecord[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-  } catch {
-    // ignore
-  }
-}
-
-function generateRandomHex(length: number): string {
-  const chars = '0123456789ABCDEF';
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-}
-
-function generateRecordId(): string {
-  return `rec-${generateRandomHex(4)}-${generateRandomHex(4)}`;
+  updateRecord: (id: string, updates: PartialRecord) => Promise<void>;
 }
 
 export const useRecordStore = create<RecordState>((set, get) => ({
   records: [],
   loading: false,
 
-  initRecords: () => {
+  fetchRecords: async (params) => {
     set({ loading: true });
-    const stored = loadFromStorage();
-    const records = stored && stored.length > 0 ? stored : initialRecords;
-    set({ records, loading: false });
-    saveToStorage(records);
+    try {
+      const records = await recordApi.list(params);
+      set({ records, loading: false });
+    } catch (error) {
+      set({ loading: false });
+      throw error;
+    }
   },
 
-  addRecord: (record) => {
-    const now = new Date().toISOString();
-    const newRecord: ExceptionRecord = {
-      ...record,
-      id: generateRecordId(),
-      createdAt: record.createdAt || now,
-    } as ExceptionRecord;
-
-    const records = [...get().records, newRecord];
-    set({ records });
-    saveToStorage(records);
-
-    return newRecord;
+  addRecord: async (record) => {
+    set({ loading: true });
+    try {
+      await recordApi.create(record as Record<string, unknown>);
+      set({ loading: false });
+      await get().fetchRecords();
+    } catch (error) {
+      set({ loading: false });
+      throw error;
+    }
   },
 
   getRecordsByType: (type: RecordType) => {
@@ -84,19 +49,15 @@ export const useRecordStore = create<RecordState>((set, get) => ({
     return get().records.filter((record) => record.orderId === orderId);
   },
 
-  updateRecord: (id: string, updates: PartialRecord) => {
-    const record = get().records.find((r) => r.id === id);
-    if (!record) {
-      return null;
+  updateRecord: async (id: string, updates: PartialRecord) => {
+    set({ loading: true });
+    try {
+      await recordApi.update(id, updates as Record<string, unknown>);
+      set({ loading: false });
+      await get().fetchRecords();
+    } catch (error) {
+      set({ loading: false });
+      throw error;
     }
-
-    const updatedRecord: ExceptionRecord = { ...record, ...updates };
-    const records = get().records.map((r) =>
-      r.id === id ? updatedRecord : r
-    );
-    set({ records });
-    saveToStorage(records);
-
-    return updatedRecord;
   },
 }));

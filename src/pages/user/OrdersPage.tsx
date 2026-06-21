@@ -124,12 +124,19 @@ function OrderCard({ order, onClick }: { order: Order; onClick: () => void }) {
 
 export default function OrdersPage() {
   const navigate = useNavigate();
-  const { orders, initOrders } = useOrderStore();
+  const { orders, fetchOrders } = useOrderStore();
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
 
   useEffect(() => {
-    initOrders();
-  }, [initOrders]);
+    const initData = async () => {
+      try {
+        await fetchOrders();
+      } catch (error) {
+        console.error('Failed to load orders:', error);
+      }
+    };
+    initData();
+  }, [fetchOrders]);
 
   const filteredOrders = orders
     .filter((order) => {

@@ -69,13 +69,19 @@ function InfoRow({
 export default function OrderDetailPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
-  const { initOrders, getOrderById } = useOrderStore();
-  const { initRecords, getRecordsByOrderId } = useRecordStore();
+  const { fetchOrders, getOrderById } = useOrderStore();
+  const { fetchRecords, getRecordsByOrderId } = useRecordStore();
 
   useEffect(() => {
-    initOrders();
-    initRecords();
-  }, [initOrders, initRecords]);
+    const initData = async () => {
+      try {
+        await Promise.all([fetchOrders(), fetchRecords()]);
+      } catch (error) {
+        console.error('Failed to load data:', error);
+      }
+    };
+    initData();
+  }, [fetchOrders, fetchRecords]);
 
   const order = orderId ? getOrderById(orderId) : undefined;
   const records = orderId ? getRecordsByOrderId(orderId) : [];

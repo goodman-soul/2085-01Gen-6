@@ -356,8 +356,8 @@ function CloseOrderModal({ order, onClose, onConfirm }: CloseOrderModalProps) {
 }
 
 export default function AdminOrdersPage() {
-  const { orders, initOrders, manualCloseOrder } = useOrderStore();
-  const { addRecord, initRecords } = useRecordStore();
+  const { orders, fetchOrders, manualCloseOrder } = useOrderStore();
+  const { addRecord, fetchRecords } = useRecordStore();
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState('');
   const [viewOrder, setViewOrder] = useState<Order | null>(null);
@@ -366,9 +366,15 @@ export default function AdminOrdersPage() {
   const adminName = localStorage.getItem(ADMIN_NAME_KEY) || '管理员';
 
   useEffect(() => {
-    initOrders();
-    initRecords();
-  }, [initOrders, initRecords]);
+    const initData = async () => {
+      try {
+        await Promise.all([fetchOrders(), fetchRecords()]);
+      } catch (error) {
+        console.error('Failed to load data:', error);
+      }
+    };
+    initData();
+  }, [fetchOrders, fetchRecords]);
 
   const filteredOrders = useMemo(() => {
     let result = [...orders];
@@ -392,7 +398,7 @@ export default function AdminOrdersPage() {
     );
   }, [orders, keyword, status]);
 
-  const handleCloseOrder = (data: {
+  const handleCloseOrder = async (data: {
     closeReason: CloseReason;
     closeRemark?: string;
     feeAdjustment: 'full_waiver' | 'partial_waiver' | 'normal_charge';
@@ -406,7 +412,7 @@ export default function AdminOrdersPage() {
       adjustedAmount = Number((fee.totalAmount * (1 - data.waiverPercent / 100)).toFixed(2));
     }
 
-    const updatedOrder = manualCloseOrder(closeOrder.id, {
+    const updatedOrder = await manualCloseOrder(closeOrder.id, {
       closeReason: data.closeReason,
       operator: adminName,
       feeAdjustment: data.feeAdjustment,
@@ -422,7 +428,7 @@ export default function AdminOrdersPage() {
         closeTime: now,
       };
 
-      addRecord({
+      await addRecord({
         orderId: updatedOrder.id,
         bedNumber: updatedOrder.bedNumber,
         type: 'manual_close',

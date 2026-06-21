@@ -322,16 +322,22 @@ function RecordCard({ record, onMarkRepaired, onConfirmRefund }: RecordCardProps
 }
 
 export default function AdminRecordsPage() {
-  const { records, initRecords, updateRecord } = useRecordStore();
-  const { beds, initBeds, updateBedStatus } = useBedStore();
+  const { records, fetchRecords, updateRecord } = useRecordStore();
+  const { beds, fetchBeds, updateBedStatus } = useBedStore();
   const [activeTab, setActiveTab] = useState<TabKey>('all');
 
   const adminName = localStorage.getItem(ADMIN_NAME_KEY) || '管理员';
 
   useEffect(() => {
-    initRecords();
-    initBeds();
-  }, [initRecords, initBeds]);
+    const initData = async () => {
+      try {
+        await Promise.all([fetchRecords(), fetchBeds()]);
+      } catch (error) {
+        console.error('Failed to load data:', error);
+      }
+    };
+    initData();
+  }, [fetchRecords, fetchBeds]);
 
   const filteredRecords = useMemo(() => {
     let result = [...records];
@@ -357,24 +363,24 @@ export default function AdminRecordsPage() {
     return counts;
   }, [records]);
 
-  const handleMarkRepaired = (record: ExceptionRecord) => {
+  const handleMarkRepaired = async (record: ExceptionRecord) => {
     if (record.type !== 'bed_damage') return;
 
     const bed = beds.find((b) => b.bedNumber === record.bedNumber);
     if (bed) {
-      updateBedStatus(bed.id, 'available');
+      await updateBedStatus(bed.id, 'available');
     }
 
-    updateRecord(record.id, {
+    await updateRecord(record.id, {
       operator: adminName,
     });
   };
 
-  const handleConfirmRefund = (record: ExceptionRecord) => {
+  const handleConfirmRefund = async (record: ExceptionRecord) => {
     if (record.type !== 'deposit_refund') return;
 
     const data = record.data as DepositRefundRecord;
-    updateRecord(record.id, {
+    await updateRecord(record.id, {
       data: {
         ...data,
         refundTime: new Date().toISOString(),

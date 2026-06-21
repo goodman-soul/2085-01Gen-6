@@ -36,9 +36,9 @@ const CLEANING_FEE_MAP: Record<CleanStatus, number> = {
 export default function ReturnPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
-  const { initOrders, getOrderById, completeOrder } = useOrderStore();
+  const { fetchOrders, getOrderById, completeOrder } = useOrderStore();
   const { addRecord } = useRecordStore();
-  const { initBeds } = useBedStore();
+  const { fetchBeds } = useBedStore();
 
   const [bedNumber, setBedNumber] = useState('');
   const [selectedWard, setSelectedWard] = useState('');
@@ -48,9 +48,15 @@ export default function ReturnPage() {
   const [previewEndTime] = useState(new Date().toISOString());
 
   useEffect(() => {
-    initOrders();
-    initBeds();
-  }, [initOrders, initBeds]);
+    const initData = async () => {
+      try {
+        await Promise.all([fetchOrders(), fetchBeds()]);
+      } catch (error) {
+        console.error('Failed to load data:', error);
+      }
+    };
+    initData();
+  }, [fetchOrders, fetchBeds]);
 
   const order = orderId ? getOrderById(orderId) : undefined;
 
@@ -95,7 +101,7 @@ export default function ReturnPage() {
         cleaningFee: CLEANING_FEE_MAP[cleanStatus],
       });
 
-      const updatedOrder = completeOrder(orderId, {
+      const updatedOrder = await completeOrder(orderId, {
         endTime,
         cleanStatus,
         returnWard: selectedWard || order.ward,
@@ -114,7 +120,7 @@ export default function ReturnPage() {
         nightEnd.setDate(nightEnd.getDate() + 1);
         nightEnd.setHours(6, 0, 0, 0);
 
-        addRecord({
+        await addRecord({
           orderId: updatedOrder.id,
           bedNumber: updatedOrder.bedNumber,
           type: 'night_cap',
@@ -131,7 +137,7 @@ export default function ReturnPage() {
         });
       }
 
-      addRecord({
+      await addRecord({
         orderId: updatedOrder.id,
         bedNumber: updatedOrder.bedNumber,
         type: 'deposit_refund',

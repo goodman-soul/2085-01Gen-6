@@ -24,17 +24,23 @@ type LockState = 'locked' | 'unlocking' | 'unlocked';
 export default function ScanPage() {
   const { bedId } = useParams<{ bedId: string }>();
   const navigate = useNavigate();
-  const { beds, initBeds, getBedById } = useBedStore();
-  const { createOrder, getActiveOrders, initOrders } = useOrderStore();
+  const { beds, fetchBeds, getBedById } = useBedStore();
+  const { createOrder, getActiveOrders, fetchOrders } = useOrderStore();
   const [phone, setPhone] = useState('');
   const [phoneError, setPhoneError] = useState('');
   const [lockState, setLockState] = useState<LockState>('locked');
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    initBeds();
-    initOrders();
-  }, [initBeds, initOrders]);
+    const initData = async () => {
+      try {
+        await Promise.all([fetchBeds(), fetchOrders()]);
+      } catch (error) {
+        console.error('Failed to load data:', error);
+      }
+    };
+    initData();
+  }, [fetchBeds, fetchOrders]);
 
   const bed = bedId ? getBedById(bedId) : undefined;
 
@@ -71,9 +77,9 @@ export default function ScanPage() {
 
     setLockState('unlocking');
 
-    setTimeout(() => {
+    setTimeout(async () => {
       const maskedPhone = phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
-      const newOrder = createOrder(bed.id, maskedPhone);
+      const newOrder = await createOrder(bed.id, maskedPhone);
 
       if (newOrder) {
         setLockState('unlocked');

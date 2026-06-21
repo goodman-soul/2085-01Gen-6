@@ -18,7 +18,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { BedCard } from '@/components/business/BedCard';
 import { OrderTimer } from '@/components/business/OrderTimer';
-import { ScanAnimation } from '@/components/business/ScanAnimation';
+import Empty from '@/components/Empty';
 import { useBedStore } from '@/store/useBedStore';
 import { useOrderStore } from '@/store/useOrderStore';
 import { wards } from '@/utils/mockData';
@@ -27,29 +27,27 @@ import { Order } from '@/types';
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { beds, initBeds, getAvailableBeds } = useBedStore();
-  const { orders, initOrders, getActiveOrders } = useOrderStore();
-  const [scanOpen, setScanOpen] = useState(false);
+  const { beds, fetchBeds, getAvailableBeds } = useBedStore();
+  const { orders, fetchOrders, getActiveOrders } = useOrderStore();
+  const [bedSelectOpen, setBedSelectOpen] = useState(false);
   const [activeWard, setActiveWard] = useState<string>('全部');
 
   useEffect(() => {
-    initBeds();
-    initOrders();
-  }, [initBeds, initOrders]);
+    const initData = async () => {
+      try {
+        await Promise.all([fetchBeds(), fetchOrders()]);
+      } catch (error) {
+        console.error('Failed to load data:', error);
+      }
+    };
+    initData();
+  }, [fetchBeds, fetchOrders]);
 
   const activeOrder: Order | undefined = getActiveOrders()[0];
   const availableBeds = getAvailableBeds();
 
   const allWards = ['全部', ...wards];
   const filteredBeds = activeWard === '全部' ? beds : beds.filter((b) => b.ward === activeWard);
-
-  const handleScanComplete = () => {
-    setScanOpen(false);
-    if (availableBeds.length > 0) {
-      const randomBed = availableBeds[Math.floor(Math.random() * availableBeds.length)];
-      navigate(`/scan/${randomBed.id}`);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
@@ -86,7 +84,7 @@ export default function HomePage() {
         <Card className="overflow-hidden border-0 shadow-xl">
           <CardContent className="p-0">
             <button
-              onClick={() => setScanOpen(true)}
+              onClick={() => setBedSelectOpen(true)}
               className="w-full p-8 flex flex-col items-center justify-center bg-gradient-to-br from-medical-blue via-medical-blue to-blue-600 text-white active:scale-[0.98] transition-transform"
             >
               <div className="relative mb-4">
@@ -231,11 +229,29 @@ export default function HomePage() {
       </main>
 
       <Modal
-        open={scanOpen}
-        onClose={() => setScanOpen(false)}
-        title="扫码开锁"
+        open={bedSelectOpen}
+        onClose={() => setBedSelectOpen(false)}
+        title="选择要租借的床位"
       >
-        <ScanAnimation onComplete={handleScanComplete} />
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">请点击您面前床位对应的卡片：</p>
+          {availableBeds.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-1">
+              {availableBeds.map((bed) => (
+                <BedCard
+                  key={bed.id}
+                  bed={bed}
+                  onClick={() => {
+                    setBedSelectOpen(false);
+                    navigate(`/scan/${bed.id}`);
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            <Empty description="暂无可租借床位" />
+          )}
+        </div>
       </Modal>
     </div>
   );

@@ -1,48 +1,46 @@
 import { create } from 'zustand';
 import type { Bed, BedStatus } from '../types';
-import { initialBeds } from '../utils/mockData';
+import { bedApi } from '../api/beds';
 
 interface BedState {
   beds: Bed[];
   loading: boolean;
-  initBeds: () => void;
+  fetchBeds: (params?: { ward?: string; status?: string }) => Promise<void>;
+  fetchBedById: (id: string) => Promise<Bed>;
   getAvailableBeds: () => Bed[];
   getBedById: (id: string) => Bed | undefined;
-  updateBedStatus: (id: string, status: BedStatus) => void;
-}
-
-const STORAGE_KEY = 'bed-store';
-
-function loadFromStorage(): Bed[] | null {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
-function saveToStorage(beds: Bed[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(beds));
-  } catch {
-    // ignore
-  }
+  updateBedStatus: (id: string, status: BedStatus) => Promise<void>;
 }
 
 export const useBedStore = create<BedState>((set, get) => ({
   beds: [],
   loading: false,
 
-  initBeds: () => {
+  fetchBeds: async (params) => {
     set({ loading: true });
-    const stored = loadFromStorage();
-    const beds = stored && stored.length > 0 ? stored : initialBeds;
-    set({ beds, loading: false });
-    saveToStorage(beds);
+    try {
+      const beds = await bedApi.list(params);
+      set({ beds, loading: false });
+    } catch (error) {
+      set({ loading: false });
+      throw error;
+    }
+  },
+
+  fetchBedById: async (id: string) => {
+    set({ loading: true });
+    try {
+      const bed = await bedApi.getById(id);
+      const beds = get().beds.map((b) => (b.id === id ? bed : b));
+      if (!beds.find((b) => b.id === id)) {
+        beds.push(bed);
+      }
+      set({ beds, loading: false });
+      return bed;
+    } catch (error) {
+      set({ loading: false });
+      throw error;
+    }
   },
 
   getAvailableBeds: () => {
@@ -53,11 +51,17 @@ export const useBedStore = create<BedState>((set, get) => ({
     return get().beds.find((bed) => bed.id === id);
   },
 
-  updateBedStatus: (id: string, status: BedStatus) => {
-    const beds = get().beds.map((bed) =>
-      bed.id === id ? { ...bed, status } : bed
-    );
-    set({ beds });
-    saveToStorage(beds);
+  updateBedStatus: async (id: string, status: BedStatus) => {
+    set({ loading: true });
+    try {
+      await bedApi.updateStatus(id, status);
+      const beds = get().beds.map((bed) =>
+        bed.id === id ? { ...bed, status } : bed
+      );
+      set({ beds, loading: false });
+    } catch (error) {
+      set({ loading: false });
+      throw error;
+    }
   },
 }));

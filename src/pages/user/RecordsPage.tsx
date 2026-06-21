@@ -32,12 +32,19 @@ const emptyMessages: Record<TabKey, string> = {
 
 export default function RecordsPage() {
   const navigate = useNavigate();
-  const { records, initRecords, getRecordsByType } = useRecordStore();
+  const { records, fetchRecords, getRecordsByType } = useRecordStore();
   const [activeTab, setActiveTab] = useState<TabKey>('night_cap');
 
   useEffect(() => {
-    initRecords();
-  }, [initRecords]);
+    const initData = async () => {
+      try {
+        await fetchRecords();
+      } catch (error) {
+        console.error('Failed to load records:', error);
+      }
+    };
+    initData();
+  }, [fetchRecords]);
 
   const filteredRecords: ExceptionRecord[] = getRecordsByType(activeTab).sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
